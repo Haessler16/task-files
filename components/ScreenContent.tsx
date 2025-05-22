@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   View,
   SafeAreaView,
+  Share,
 } from 'react-native';
 
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useDataImportExport } from '../hooks/useDataImportExport';
@@ -33,7 +35,7 @@ export function HomeScreen() {
 
   // Get store actions
   const addItem = useStore((state) => state.addItem);
-  const updateItem = useStore((state) => state.updateItem);
+  // const updateItem = useStore((state) => state.updateItem);
   const deleteItem = useStore((state) => state.deleteItem);
 
   // Get store data
@@ -80,6 +82,29 @@ export function HomeScreen() {
     });
   }, [completedTasks, deleteItem]);
 
+  const handleExportPress = async () => {
+    try {
+      const data = handleExport();
+      const jsonString = JSON.stringify(data, null, 2);
+
+      // Create a temporary file
+      const fileUri = `${FileSystem.cacheDirectory}tasks-${new Date().toISOString().split('T')[0]}.json`;
+      await FileSystem.writeAsStringAsync(fileUri, jsonString);
+
+      // Share the file
+      await Share.share({
+        url: fileUri,
+        title: 'Tasks Export',
+        message: 'Here is your tasks export file',
+      });
+
+      Alert.alert('Success', 'Tasks exported successfully');
+    } catch (error) {
+      console.error('Error exporting file:', error);
+      Alert.alert('Error', 'Failed to export tasks');
+    }
+  };
+
   const handleImportPress = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -89,11 +114,13 @@ export function HomeScreen() {
       if (!result.canceled && result.assets[0]) {
         const response = await fetch(result.assets[0].uri);
         const jsonString = await response.text();
-        handleImport(jsonString);
+        const data = JSON.parse(jsonString);
+        handleImport(data);
+        Alert.alert('Success', 'Tasks imported successfully');
       }
     } catch (error) {
       console.error('Error importing file:', error);
-      Alert.alert('Error', 'Failed to import file');
+      Alert.alert('Error', "Failed to import file. Please make sure it's a valid JSON file.");
     }
   };
 
@@ -102,15 +129,15 @@ export function HomeScreen() {
       <View className="flex-1 bg-gray-50 dark:bg-gray-900">
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 pb-4 pt-2">
-          <Text
-            // style={{ fontSize: 24 }}
-            className=" text-2xl font-bold text-gray-900 dark:text-white">
-            Tasks zinli
-          </Text>
-
-          <TouchableOpacity>
-            <Ionicons name="search" size={24} color="gray" />
-          </TouchableOpacity>
+          <Text className="text-2xl font-bold text-gray-900 dark:text-white">Tasks zinli</Text>
+          <View className="flex-row gap-2">
+            <TouchableOpacity onPress={handleImportPress} className="rounded-full bg-green-600 p-2">
+              <Ionicons name="cloud-download" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleExportPress} className="rounded-full bg-blue-600 p-2">
+              <Ionicons name="cloud-upload" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
         {/* Sort and Completed Row */}
         <View className="flex-row items-center justify-between px-4 pb-2">
